@@ -246,6 +246,7 @@ public class Dashboard extends AppCompatActivity implements
                                     @Override
                                     public void run() {
                                         playerMap.get(killed).getMarker().setVisible(false);
+//                                        playerMap.remove(killed);
                                     }
                                 });
                                 showGameLog(killed + " killed by " + shotby);
@@ -275,11 +276,13 @@ public class Dashboard extends AppCompatActivity implements
                         Player player;
                         for(int i=0;i<ja.length();i++){
                             try {
-                                String id = ja.getJSONObject(i).getString("id");
+                                JSONObject jsonObject = ja.getJSONObject(i);
+                                String id = jsonObject.getString("id");
 
                                 if(!id.equalsIgnoreCase(username))
                                 {
-                                    JSONObject location = ja.getJSONObject(i).getJSONObject("location");
+                                    JSONObject location = jsonObject.getJSONObject("location");
+                                    final boolean status = location.getBoolean("Status");
                                     final Double temp_long = location.getJSONObject("Location").getDouble("Longitude");
                                     final Double temp_lat = location.getJSONObject("Location").getDouble("Latitude");
                                     player = playerMap.get(id);
@@ -294,6 +297,9 @@ public class Dashboard extends AppCompatActivity implements
                                         playerMap.put(id, player);
                                     }
 
+                                    if (status) {
+                                        player.getMarker().setVisible(true);
+                                    }
                                     player.setLocation(temp_lat, temp_long);
 //                                    googleMap.clear();
                                 }
