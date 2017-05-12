@@ -1,6 +1,7 @@
 package edu.csulb.com.gostrike;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.SharedPreferences;
@@ -13,11 +14,16 @@ import android.location.Location;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.support.annotation.RequiresApi;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.RotateAnimation;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -34,19 +40,12 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.koushikdutta.async.ByteBufferList;
-import com.koushikdutta.async.DataEmitter;
-import com.koushikdutta.async.callback.DataCallback;
 import com.koushikdutta.async.http.AsyncHttpClient;
 import com.koushikdutta.async.http.WebSocket;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Iterator;
 
 import edu.csulb.com.gostrike.app.Extra;
 
@@ -58,35 +57,35 @@ public class Dashboard extends AppCompatActivity implements
         LocationListener, SensorEventListener, OnMapReadyCallback {
 
     //Define a request code to send to Google Play services
+
     private final static int CONNECTION_FAILURE_RESOLUTION_REQUEST = 9000;
     private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
-    private double currentLatitude;
-    private double currentLongitude;
-
+    private double currentLatitude,currentLongitude;
     public WebSocket webSocket2=null;
 
     GoogleMap googleMap;
-
-    private SensorManager sManager;
-    SensorEvent event;
-
-    float[] mGravity;
-    float[] mGeomagnetic;
-
     Marker marker;
-
-    String username;
+    String username,message;
     TextView gamelog;
+    Extra extra;
+    ImageView image;
+    float currentDegree=0f;
 
-    String message;
+    private SensorManager mSensorManager;
+    private final float[] mAccelerometerReading = new float[3];
+    private final float[] mMagnetometerReading = new float[3];
+    private final float[] mRotationMatrix = new float[9];
+    private final float[] mOrientationAngles = new float[3];
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dashboard);
 
+
         //Initialize
+        extra = new Extra(getApplicationContext());
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 // The next two lines tell the new client that “this” current class will handle connection stuff
                 .addConnectionCallbacks(this)
@@ -96,7 +95,10 @@ public class Dashboard extends AppCompatActivity implements
                 .build();
         gamelog = (TextView) findViewById(R.id.gamelog);
         gamelog.setSelected(true);
-        gamelog.setHorizontallyScrolling(true);
+        gamelog.setMovementMethod(new ScrollingMovementMethod());
+        image = (ImageView) findViewById(R.id.imageViewCompass);
+
+
 
         message = "";
 
@@ -109,14 +111,82 @@ public class Dashboard extends AppCompatActivity implements
                 .setInterval(500)        // 10 seconds, in milliseconds
                 .setFastestInterval(200); // 1 second, in milliseconds
 
-        //get a hook to the sensor service
-        sManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        //changed
+        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        AsyncHttpClient.getDefaultInstance().websocket("ws://192.168.43.150:8080/join", "", new AsyncHttpClient.WebSocketConnectCallback() {
+        socketConnection();
+        showGameLog("Welcome Soldier!");
+
+    }
+
+    private void showGameLog(String mymessage)
+    {
+        message = message + mymessage + "\n";
+        gamelog.post(new Runnable() {
+            public void run() {
+                gamelog.setText(message);
+            }
+        });
+    }
+
+    public void exitButton(View v)
+    {
+        exitPlay();
+    }
+
+    public void exitPlay()
+    {
+        Intent i = new Intent(Dashboard.this, MainActivity.class);
+        i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(i);
+        finish();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Log.v(this.getClass().getSimpleName(), "onPause()");
+
+        //Disconnect from API onPause()
+        if (mGoogleApiClient.isConnected()) {
+            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+            mGoogleApiClient.disconnect();
+        }
+        if(webSocket2!=null)
+            webSocket2.close();
+        mSensorManager.unregisterListener(this);
+    }
+
+    //On Shoot
+    public void shoot(View v){
+
+        JSONObject jsonObject = new JSONObject();
+        float temp_val = 0;
+        updateOrientationAngles();
+
+        try {
+            jsonObject.put("id","123");
+            jsonObject.put("event","shoot");
+            JSONObject locationObj = new JSONObject();
+            locationObj.put("latitude",currentLatitude);
+            locationObj.put("longitude",currentLongitude);
+            jsonObject.put("location",locationObj);
+            double temp = Math.toDegrees(mOrientationAngles[0]);
+            jsonObject.put("z",temp);
+            sendSocket(jsonObject);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        new SoundEffects(getApplicationContext(),R.raw.gungunshot).execute();
+    }
+
+    private void socketConnection()
+    {
+        AsyncHttpClient.getDefaultInstance().websocket("ws://"+extra.getIP()+":8080/join", "", new AsyncHttpClient.WebSocketConnectCallback() {
             @Override
             public void onCompleted(Exception ex, WebSocket webSocket) {
                 if (ex != null) {
@@ -147,16 +217,18 @@ public class Dashboard extends AppCompatActivity implements
                                     handler.post(new Runnable() {
                                         @Override
                                         public void run() {
-                                            Toast.makeText(getApplicationContext(),"You are dead! Login Back to take revenge! ;)",Toast.LENGTH_SHORT).show();
-                                            Intent i = new Intent(Dashboard.this, MainActivity.class);
-                                            i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                            startActivity(i);
-                                            finish();
+                                            extra.setLost(extra.getLost()+1);
+                                            Toast.makeText(getApplicationContext(),"You lost! Start Again to take revenge! ;)",Toast.LENGTH_SHORT).show();
+                                            exitPlay();
                                         }
                                     });
                                 }
                                 else
                                 {
+                                    if(shotby.equals(username))
+                                    {
+                                        extra.setWon(extra.getWon()+1);
+                                    }
                                     showGameLog(killed + " killed by " + shotby);
                                 }
                             }
@@ -211,72 +283,9 @@ public class Dashboard extends AppCompatActivity implements
         }).start();
     }
 
-    private void showGameLog(String mymessage)
-    {
-        message = message + mymessage + "\n";
-        gamelog.post(new Runnable() {
-                          public void run() {
-                              gamelog.setText(message);
-                          }
-                      });
-    }
-
     private void moveToCurrentLocation(LatLng currentLocation)
     {
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLocation,18));
-        // Zoom in, animating the camera.
-//        googleMap.animateCamera(CameraUpdateFactory.zoomIn());
-        // Zoom out to zoom level 10, animating with a duration of 2 seconds.
-//        googleMap.animateCamera(CameraUpdateFactory.zoomTo(20), 2000, null);
-
-
-    }
-
-    public void shoot(View v){
-
-        JSONObject jsonObject = new JSONObject();
-        float temp_val = 0;
-        if(event!=null)
-        {
-            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
-                mGravity = event.values;
-
-            if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
-                mGeomagnetic = event.values;
-
-            if (mGravity != null && mGeomagnetic != null) {
-                float R[] = new float[9];
-                float I[] = new float[9];
-
-                if (SensorManager.getRotationMatrix(R, I, mGravity, mGeomagnetic)) {
-
-                    // orientation contains azimut, pitch and roll
-                    float orientation[] = new float[3];
-                    SensorManager.getOrientation(R, orientation);
-
-                    temp_val = orientation[0];
-                }
-            }
-            try {
-                jsonObject.put("id","123");
-                jsonObject.put("event","shoot");
-                JSONObject locationObj = new JSONObject();
-                locationObj.put("lat",currentLatitude);
-                locationObj.put("long",currentLongitude);
-                jsonObject.put("location",locationObj);
-                JSONObject axisObj = new JSONObject();
-                axisObj.put("x",event.values[1]);
-                axisObj.put("y",event.values[2]);
-                axisObj.put("z",event.values[0]);
-                axisObj.put("z2",temp_val);
-//                Toast.makeText(getApplicationContext(), event.values[0] + "", Toast.LENGTH_LONG).show();
-                jsonObject.put("axis",axisObj);
-                sendSocket(jsonObject);
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-        }
-        new SoundEffects(getApplicationContext(),R.raw.gungunshot).execute();
     }
 
     /**
@@ -317,8 +326,8 @@ public class Dashboard extends AppCompatActivity implements
             jsonObject.put("id","123");
             jsonObject.put("event","update");
             JSONObject locationObj = new JSONObject();
-            locationObj.put("lat",currentLatitude);
-            locationObj.put("long",currentLongitude);
+            locationObj.put("latitude",currentLatitude);
+            locationObj.put("longitude",currentLongitude);
             jsonObject.put("location",locationObj);
             sendSocket(jsonObject);
         } catch (JSONException e) {
@@ -338,39 +347,61 @@ public class Dashboard extends AppCompatActivity implements
     @Override
     public void onSensorChanged(SensorEvent event) {
 
-        //if sensor is unreliable, return void
-        if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE)
-        {
-            return;
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            System.arraycopy(event.values, 0, mAccelerometerReading,
+                    0, mAccelerometerReading.length);
         }
-        this.event = event;
+        else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+            System.arraycopy(event.values, 0, mMagnetometerReading,
+                    0, mMagnetometerReading.length);
+        }
+
+
+        updateOrientationAngles();
+    }
+
+    public void updateOrientationAngles() {
+        // Update rotation matrix, which is needed to update orientation angles.
+        mSensorManager.getRotationMatrix(mRotationMatrix, null,
+                mAccelerometerReading, mMagnetometerReading);
+
+        // "mRotationMatrix" now has up-to-date information.
+
+        mSensorManager.getOrientation(mRotationMatrix, mOrientationAngles);
+
+        //Amimate
+        float degree= (float) Math.toDegrees(mOrientationAngles[0])+90;
+        RotateAnimation ra = new RotateAnimation(
+                currentDegree,
+                -degree,
+                Animation.RELATIVE_TO_SELF, 0.5f,
+                Animation.RELATIVE_TO_SELF,
+                0.5f);
+        // how long the animation will take place
+        ra.setDuration(210);
+        // set the animation after the end of the reservation status
+        ra.setFillAfter(true);
+        // Start the animation
+        image.startAnimation(ra);
+        currentDegree = -degree;
+
+        // "mOrientationAngles" now has up-to-date information.
     }
 
     //Backside
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
     @Override
     protected void onResume() {
         super.onResume();
         //Now lets connect to the API
         mGoogleApiClient.connect();
-        sManager.registerListener(this, sManager.getDefaultSensor(Sensor.TYPE_ORIENTATION),SensorManager.SENSOR_DELAY_FASTEST);
+        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
+                SensorManager.SENSOR_DELAY_FASTEST, SensorManager.SENSOR_DELAY_FASTEST);
+        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+                SensorManager.SENSOR_DELAY_FASTEST, SensorManager.SENSOR_DELAY_FASTEST);
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        Log.v(this.getClass().getSimpleName(), "onPause()");
 
-        //Disconnect from API onPause()
-        if (mGoogleApiClient.isConnected()) {
-            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
-            mGoogleApiClient.disconnect();
-        }
-        if(webSocket2!=null)
-            webSocket2.close();
-        sManager.unregisterListener(this);
-    }
-
-    //Extra Methods
     /**
      * If connected get lat and long
      *

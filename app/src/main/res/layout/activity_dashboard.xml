@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/activity_dashboard"
     android:layout_width="match_parent"
+    android:background="@color/colorWhite"
     android:layout_height="match_parent"
     tools:context="edu.csulb.com.gostrike.Dashboard">
 
@@ -27,9 +28,10 @@
             android:layout_height="match_parent"
             android:id="@+id/gamelog"
             android:layout_weight="2"
-            android:maxLines="1"
+            android:scrollbars = "vertical"
+            android:maxLines="100"
             android:ellipsize="marquee"
-            android:scrollHorizontally="true" />
+            android:textSize="18dp"/>
 
 
     </LinearLayout>
@@ -41,11 +43,22 @@
         android:layout_weight="2">
 
         <Button
-            android:text="Collect"
+            android:text="Exit"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:id="@+id/button2"
-            android:layout_weight="2" />
+            android:layout_weight="1"
+            android:onClick="exitButton" />
+
+        <ImageView
+            android:id="@+id/imageViewCompass"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/tvHeading"
+            android:layout_centerHorizontal="true"
+            android:layout_weight="1"
+            android:src="@drawable/img_compass"
+            />
 
         <Button
             android:text="Shoot"

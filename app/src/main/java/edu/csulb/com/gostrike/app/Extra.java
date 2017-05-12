@@ -1,6 +1,7 @@
 package edu.csulb.com.gostrike.app;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.widget.Toast;
 
 import org.json.JSONArray;
@@ -41,5 +42,60 @@ public class Extra {
             }
         }
         return jsonArray;
+    }
+
+    public void setIp(String ip)
+    {
+        SharedPreferences.Editor sfe = ctx.getSharedPreferences("GoStrike",Context.MODE_PRIVATE).edit();
+        sfe.putString("IP",ip);
+        sfe.commit();
+    }
+
+    public String getIP()
+    {
+        SharedPreferences sf = ctx.getSharedPreferences("GoStrike",Context.MODE_PRIVATE);
+        return sf.getString("IP",null);
+
+    }
+
+    public void setWon(int point)
+    {
+        SharedPreferences.Editor sfe = ctx.getSharedPreferences("GoStrike",Context.MODE_PRIVATE).edit();
+        sfe.putInt("won",point);
+        sfe.commit();
+    }
+
+    public void setLost(int point)
+    {
+        SharedPreferences.Editor sfe = ctx.getSharedPreferences("GoStrike",Context.MODE_PRIVATE).edit();
+        sfe.putInt("lost",point);
+        sfe.commit();
+    }
+
+    public int getWon()
+    {
+        SharedPreferences sf = ctx.getSharedPreferences("GoStrike",Context.MODE_PRIVATE);
+        return sf.getInt("won",0);
+    }
+
+    public int getLost()
+    {
+        SharedPreferences sf = ctx.getSharedPreferences("GoStrike",Context.MODE_PRIVATE);
+        return sf.getInt("lost",0);
+    }
+
+    public String getUsername()
+    {
+        SharedPreferences sf = ctx.getSharedPreferences("GoStrike",Context.MODE_PRIVATE);
+        return sf.getString("username",null);
+    }
+
+    public void clearSharedPref()
+    {
+        SharedPreferences.Editor sfe = ctx.getSharedPreferences("GoStrike",ctx.MODE_PRIVATE).edit();
+        sfe.putString("username",null);
+        sfe.putInt("won",0);
+        sfe.putInt("lost",0);
+        sfe.commit();
     }
 }

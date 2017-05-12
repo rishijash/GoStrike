@@ -5,10 +5,10 @@
     android:id="@+id/activity_main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingBottom="@dimen/activity_vertical_margin"
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
+    android:background="@color/colorWhite"
     android:orientation="vertical"
     tools:context="edu.csulb.com.gostrike.MainActivity">
 
@@ -40,6 +40,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
+        android:textSize="25dp"
         android:id="@+id/login_login_button"
         android:onClick="login" />
 
@@ -48,15 +49,28 @@
         android:layout_height="0dip"
         android:layout_weight="1"
         android:gravity="center|bottom"
-        android:orientation="vertical" >
-        <Button
-            android:text="New User?"
-            android:layout_width="wrap_content"
+        android:orientation="horizontal" >
+
+        <ImageButton
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            app:srcCompat="@drawable/soldier"
+            android:id="@+id/imageView3"
+            android:layout_weight="1"
+            android:background="@color/colorWhite"
+            android:onClick="signup" />
+
+        <Button
+            android:text="New Soldier? Click here to Enroll!"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:id="@+id/login_signup_button"
             android:foregroundGravity="bottom"
             android:layout_gravity="center"
-            android:onClick="signup" />
+            android:onClick="signup"
+            style="?android:attr/borderlessButtonStyle"/>
+
 
     </LinearLayout>
 

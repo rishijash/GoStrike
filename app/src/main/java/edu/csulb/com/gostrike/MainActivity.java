@@ -26,20 +26,28 @@ public class MainActivity extends AppCompatActivity {
     EditText username_et, password_et;
     private static final int PER_REQUEST_CODE1 = 100;
     private static final int PER_REQUEST_CODE2 = 200;
-
+    Extra extra;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        extra = new Extra(getApplicationContext());
+
+        extra.setIp("192.168.0.114");
+
         //Initialize
         username_et = (EditText)findViewById(R.id.login_username_editText);
         password_et = (EditText)findViewById(R.id.login_password_editText);
 
         SharedPreferences sfe = getSharedPreferences("GoStrike",MODE_PRIVATE);
-        username_et.setText(sfe.getString("username",null));
-
+//        username_et.setText(sfe.getString("username",null));
+        String un = sfe.getString("username",null);
+        if(un!=null)
+        {
+            login();
+        }
 
         //Check Permissions
         try{
@@ -54,12 +62,11 @@ public class MainActivity extends AppCompatActivity {
         {
             System.out.print(e.toString());
         }
-
     }
 
     public void login(View v)
     {
-        String link = "http://192.168.43.150:8080/login";
+        String link = "http://"+extra.getIP() + ":8080/login";
         String username = username_et.getText().toString();
         String password = password_et.getText().toString();
         Uri.Builder builder = new Uri.Builder()
@@ -71,6 +78,9 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     if(result.getString("result").equals("ok"))
                     {
+                        SharedPreferences.Editor sfe = getSharedPreferences("GoStrike",MODE_PRIVATE).edit();
+                        sfe.putString("username",username_et.getText().toString());
+                        sfe.commit();
                         login();
                     }
                     else
@@ -85,11 +95,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void login(){
-        SharedPreferences.Editor sfe = getSharedPreferences("GoStrike",MODE_PRIVATE).edit();
-        sfe.putString("username",username_et.getText().toString());
-        sfe.commit();
 
-        Intent i = new Intent(this, Dashboard.class);
+        Intent i = new Intent(this, ScoreBoard.class);
         i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(i);
         finish();

@@ -35,7 +35,7 @@ public class Signup extends AppCompatActivity {
     }
 
     public void signup(View v) {
-        String link = "http://192.168.43.150:8080/signup";
+        String link = "http://"+extra.getIP()+":8080/signup";
         String username = username_et.getText().toString();
         String password = password_et.getText().toString();
         String confirmpassword = confirmpassword_et.getText().toString();

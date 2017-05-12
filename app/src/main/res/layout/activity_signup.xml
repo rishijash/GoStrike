@@ -9,6 +9,7 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
+    android:background="@color/colorWhite"
     tools:context="edu.csulb.com.gostrike.Signup"
     android:orientation="vertical" >
 
@@ -50,7 +51,8 @@
                 android:inputType="textPersonName"
                 android:ems="10"
                 android:id="@+id/signup_username_editText"
-                android:hint="Username" />
+                android:hint="Username"
+                android:layout_marginTop="15dp" />
 
             <EditText
                 android:layout_width="match_parent"
@@ -90,9 +92,11 @@
             </LinearLayout>
 
             <Button
-                android:text="Create Account"
+                android:text="Enroll"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:textSize="25dp"
+                android:layout_marginTop="15dp"
                 android:id="@+id/signup_createaccount_button"
                 android:layout_gravity="center"
                 android:onClick="signup" />
