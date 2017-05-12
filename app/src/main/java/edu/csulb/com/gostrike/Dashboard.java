@@ -237,18 +237,19 @@ public class Dashboard extends AppCompatActivity implements
                                 }
                                 else
                                 {
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            playerMap.get(killed).getMarker().setVisible(false);
+//                                        playerMap.remove(killed);
+                                        }
+                                    });
+
                                     if(shotby.equalsIgnoreCase(username))
                                     {
                                         extra.setWon(extra.getWon()+1);
                                     }
                                 }
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        playerMap.get(killed).getMarker().setVisible(false);
-//                                        playerMap.remove(killed);
-                                    }
-                                });
                                 showGameLog(killed + " killed by " + shotby);
                             }
                             else if(jo.getString("Event").equals("update")){
