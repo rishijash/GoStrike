@@ -93,9 +93,10 @@
 
             <Button
                 android:text="Enroll"
-                android:layout_width="wrap_content"
+                android:layout_width="131dp"
                 android:layout_height="wrap_content"
-                android:textSize="25dp"
+                android:textSize="20dp"
+                android:background="@drawable/button_shape"
                 android:layout_marginTop="15dp"
                 android:id="@+id/signup_createaccount_button"
                 android:layout_gravity="center"

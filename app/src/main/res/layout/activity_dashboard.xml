@@ -11,6 +11,7 @@
         android:orientation="vertical"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="#009688"
         android:layout_weight="1">
 
         <fragment xmlns:android="http://schemas.android.com/apk/res/android"
@@ -31,7 +32,7 @@
             android:scrollbars = "vertical"
             android:maxLines="100"
             android:ellipsize="marquee"
-            android:textSize="18dp"/>
+            android:textSize="10dp"/>
 
 
     </LinearLayout>
@@ -57,7 +58,7 @@
             android:layout_below="@+id/tvHeading"
             android:layout_centerHorizontal="true"
             android:layout_weight="1"
-            android:src="@drawable/img_compass"
+            android:src="@drawable/compass"
             />
 
         <Button
