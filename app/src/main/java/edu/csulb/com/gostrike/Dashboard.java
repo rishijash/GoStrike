@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.hardware.GeomagneticField;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -16,11 +17,13 @@ import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.RequiresApi;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.AccelerateInterpolator;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
 import android.widget.ImageView;
@@ -37,6 +40,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -47,8 +51,12 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Hashtable;
+import java.util.Map;
+
 import edu.csulb.com.gostrike.app.Extra;
 
+import edu.csulb.com.gostrike.app.Player;
 import edu.csulb.com.gostrike.app.SoundEffects;
 
 public class Dashboard extends AppCompatActivity implements
@@ -77,6 +85,10 @@ public class Dashboard extends AppCompatActivity implements
     private final float[] mMagnetometerReading = new float[3];
     private final float[] mRotationMatrix = new float[9];
     private final float[] mOrientationAngles = new float[3];
+    private float bearing;
+    private float mDeclination;
+    private float mTargetDirection;
+    private Map<String, Player> playerMap;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,7 +110,7 @@ public class Dashboard extends AppCompatActivity implements
         gamelog.setMovementMethod(new ScrollingMovementMethod());
         image = (ImageView) findViewById(R.id.imageViewCompass);
 
-
+        playerMap = new Hashtable<>();
 
         message = "";
 
@@ -120,7 +132,7 @@ public class Dashboard extends AppCompatActivity implements
 
         socketConnection();
         showGameLog("Welcome Soldier!");
-
+        mHandler.postDelayed(mCompassViewUpdater, 20);
     }
 
     private void showGameLog(String mymessage)
@@ -204,14 +216,14 @@ public class Dashboard extends AppCompatActivity implements
                 }
                 webSocket2.setStringCallback(new WebSocket.StringCallback() {
                     public void onStringAvailable(String s) {
-                        System.out.println("I got a string: " + s);
+//                        System.out.println("I got a string: " + s);
                         try {
                             JSONObject jo = new JSONObject(s);
                             if(jo.getString("Event").equals("kill"))
                             {
                                 String shotby = jo.getString("ShotBy");
-                                String killed = jo.getString("Killed");
-                                if(killed.equals(username))
+                                final String killed = jo.getString("Killed");
+                                if(killed.equalsIgnoreCase(username))
                                 {
                                     Handler handler = new Handler(Looper.getMainLooper());
                                     handler.post(new Runnable() {
@@ -225,12 +237,18 @@ public class Dashboard extends AppCompatActivity implements
                                 }
                                 else
                                 {
-                                    if(shotby.equals(username))
+                                    if(shotby.equalsIgnoreCase(username))
                                     {
                                         extra.setWon(extra.getWon()+1);
                                     }
-                                    showGameLog(killed + " killed by " + shotby);
                                 }
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        playerMap.get(killed).getMarker().setVisible(false);
+                                    }
+                                });
+                                showGameLog(killed + " killed by " + shotby);
                             }
                             else if(jo.getString("Event").equals("update")){
                                 JSONObject jo2 = jo.getJSONObject("Clients");
@@ -254,22 +272,30 @@ public class Dashboard extends AppCompatActivity implements
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        Player player;
                         for(int i=0;i<ja.length();i++){
                             try {
                                 String id = ja.getJSONObject(i).getString("id");
-                                if(id!=username)
+
+                                if(!id.equalsIgnoreCase(username))
                                 {
                                     JSONObject location = ja.getJSONObject(i).getJSONObject("location");
-                                    final Double temp_long = location.getJSONObject("Location").getDouble("Long");
-                                    final Double temp_lat = location.getJSONObject("Location").getDouble("Lat");
-                                    googleMap.clear();
-                                    MarkerOptions self_markerOptions;
-                                    self_markerOptions = new MarkerOptions()
-                                            .position(new LatLng(temp_lat, temp_long))
-                                            .title("")
-                                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
-                                    marker = googleMap.addMarker(self_markerOptions);
+                                    final Double temp_long = location.getJSONObject("Location").getDouble("Longitude");
+                                    final Double temp_lat = location.getJSONObject("Location").getDouble("Latitude");
+                                    player = playerMap.get(id);
 
+                                    if (player == null) {
+                                        MarkerOptions self_markerOptions = new MarkerOptions()
+                                                .position(new LatLng(temp_lat, temp_long))
+                                                .title(id)
+                                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+                                        Marker marker = googleMap.addMarker(self_markerOptions);
+                                        player = new Player(id, marker);
+                                        playerMap.put(id, player);
+                                    }
+
+                                    player.setLocation(temp_lat, temp_long);
+//                                    googleMap.clear();
                                 }
                             } catch (JSONException e) {
                                 e.printStackTrace();
@@ -283,9 +309,15 @@ public class Dashboard extends AppCompatActivity implements
         }).start();
     }
 
-    private void moveToCurrentLocation(LatLng currentLocation)
+    private void moveToCurrentLocation(float mDirection)
     {
-        googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLocation,18));
+        CameraPosition newCamPos = new CameraPosition.Builder()
+                .target(new LatLng(currentLatitude, currentLongitude))
+                .bearing(mDirection).zoom(18f).build();
+
+        if (googleMap != null) {
+            googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(newCamPos));
+        }
     }
 
     /**
@@ -300,26 +332,21 @@ public class Dashboard extends AppCompatActivity implements
         currentLatitude = location.getLatitude();
         currentLongitude = location.getLongitude();
 
-        MarkerOptions self_markerOptions;
-
-        self_markerOptions = new MarkerOptions()
-                .position(new LatLng(currentLatitude, currentLongitude))
-                .title("Your Location")
-                .icon(BitmapDescriptorFactory.
-                 defaultMarker(BitmapDescriptorFactory.HUE_GREEN));
-
         if(marker!=null)
         {
             marker.remove();
             marker = null;
         }
 
-        if(marker==null)
-        {
-            marker = googleMap.addMarker(self_markerOptions);
-        }
+        GeomagneticField field = new GeomagneticField(
+                (float)location.getLatitude(),
+                (float)location.getLongitude(),
+                (float)location.getAltitude(),
+                System.currentTimeMillis()
+        );
 
-        moveToCurrentLocation(new LatLng(currentLatitude, currentLongitude));
+        // getDeclination returns degrees
+        mDeclination = field.getDeclination();
 
         JSONObject jsonObject = new JSONObject();
         try {
@@ -333,7 +360,7 @@ public class Dashboard extends AppCompatActivity implements
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        Log.e("Test","here");
+//        Log.e("Test","here");
     }
 
     private void sendSocket(JSONObject jsonObject)
@@ -370,10 +397,12 @@ public class Dashboard extends AppCompatActivity implements
         mSensorManager.getOrientation(mRotationMatrix, mOrientationAngles);
 
         //Amimate
-        float degree= (float) Math.toDegrees(mOrientationAngles[0])+90;
+        bearing = (float) Math.toDegrees(mOrientationAngles[0]);
+        mTargetDirection = normalizeDegree(bearing + 90);
+//        gamelog.setText("" + bearing + " " + mTargetDirection);
         RotateAnimation ra = new RotateAnimation(
                 currentDegree,
-                -degree,
+                -mTargetDirection,
                 Animation.RELATIVE_TO_SELF, 0.5f,
                 Animation.RELATIVE_TO_SELF,
                 0.5f);
@@ -383,9 +412,13 @@ public class Dashboard extends AppCompatActivity implements
         ra.setFillAfter(true);
         // Start the animation
         image.startAnimation(ra);
-        currentDegree = -degree;
+        currentDegree = -mTargetDirection;
 
         // "mOrientationAngles" now has up-to-date information.
+    }
+
+    private float normalizeDegree(float degree) {
+        return (degree + 720) % 360;
     }
 
     //Backside
@@ -464,5 +497,55 @@ public class Dashboard extends AppCompatActivity implements
     public void onMapReady(GoogleMap googleMap) {
 
         this.googleMap = googleMap;
+        googleMap.setBuildingsEnabled(true);
+        enableMyLocation();
+//        googleMap.se
     }
+
+    private void enableMyLocation() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Permission to access the location is missing.
+        } else if (googleMap != null) {
+            // Access to the location has been granted to the app.
+            googleMap.setMyLocationEnabled(true);
+            googleMap.getUiSettings().setMyLocationButtonEnabled(false);
+//            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(currentLatitude, currentLongitude),18));
+        }
+    }
+
+    protected final Handler mHandler = new Handler();
+    private float mDirection;
+    private final float MAX_ROATE_DEGREE = 1.0f;
+    private AccelerateInterpolator mInterpolator = new AccelerateInterpolator();;
+    protected Runnable mCompassViewUpdater = new Runnable() {
+        @Override
+        public void run() {
+
+            if (mTargetDirection != mDirection) {
+
+                // calculate the short routine
+                float to = mTargetDirection;
+                if (to - mDirection > 180) {
+                    to -= 360;
+                } else if (to - mDirection < -180) {
+                    to += 360;
+                }
+
+                // limit the max speed to MAX_ROTATE_DEGREE
+                float distance = to - mDirection;
+                if (Math.abs(distance) > MAX_ROATE_DEGREE) {
+                    distance = distance > 0 ? MAX_ROATE_DEGREE : (-1.0f * MAX_ROATE_DEGREE);
+                }
+
+                // need to slow down if the distance is short
+                mDirection = normalizeDegree(mDirection
+                        + ((to - mDirection) * mInterpolator.getInterpolation(Math
+                        .abs(distance) > MAX_ROATE_DEGREE ? 0.4f : 0.3f)));
+                moveToCurrentLocation(mDirection);
+            }
+
+            mHandler.postDelayed(mCompassViewUpdater, 20);
+        }
+    };
 }
